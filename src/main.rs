@@ -27,12 +27,17 @@ async fn proxy_handler(
     let client = Client::builder().build::<_, hyper::Body>(https);
 
     let upstream = config.upstream;
-    let uri = format!("{}{}", upstream, req.uri());
+    let method = req.method().clone();
+    let path = req.uri().clone();
+
+    let uri = format!("{}{}", upstream, &path);
+
+    println!("request  for     {} {}", &method, &path);
 
     let recording_path = recording_name(
         &config.tapes,
         &req.uri().to_string(),
-        &req.method().to_string(),
+        &method.to_string(),
     );
     fs::create_dir_all(format!("{}/{}", &config.tapes, &req.uri().to_string()))
         .await
@@ -64,15 +69,18 @@ async fn proxy_handler(
         }
         let bs: Vec<u8> = c[start_of_body..].try_into().unwrap();
         let res = res.body(Body::from(bs)).unwrap();
+        println!("playback for {} {} {}", resp.code.unwrap() , &method, &path);
         Ok(res)
     } else {
         let mut outgoing_request = Request::builder()
             .method(method.clone())
             .uri(uri)
             .version(req.version());
+
         for (k,v) in req.headers() {
             outgoing_request = outgoing_request.header(k,v);
         }
+
         let outgoing_request = outgoing_request
             .body(req.into_body())
             .unwrap();
@@ -108,6 +116,7 @@ async fn proxy_handler(
 
         let _ = file.write_all(&bytes.clone()).await;
 
+        println!("record   for {} {} {}", &parts.status.as_u16() ,&method, &path);
         Ok(Response::from_parts(parts, Body::from(bytes)))
     }
 }
@@ -119,6 +128,7 @@ async fn main() {
     let ip =
         IpAddr::from_str(&config.bind).expect("Looks like you didn't provide a valid IP for bind");
     let addr = SocketAddr::new(ip, config.port);
+    println!("Listening on {}", addr);
 
     let make_service = make_service_fn(move |_conn| {
         let config = config.clone();
