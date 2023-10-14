@@ -66,10 +66,14 @@ async fn proxy_handler(
         let res = res.body(Body::from(bs)).unwrap();
         Ok(res)
     } else {
-        let outgoing_request = Request::builder()
-            .method(req.method())
+        let mut outgoing_request = Request::builder()
+            .method(method.clone())
             .uri(uri)
-            .version(req.version())
+            .version(req.version());
+        for (k,v) in req.headers() {
+            outgoing_request = outgoing_request.header(k,v);
+        }
+        let outgoing_request = outgoing_request
             .body(req.into_body())
             .unwrap();
 
