@@ -17,6 +17,7 @@ The use case is any applications talking to an API. Use middleman to replay resp
 * Build the image with `docker build -t middleman .`
 * Run the image with `docker run -p 5050:5050 middleman`.
 * Add `-v $(pwd)/tapes:/middleman/tapes` to persist tapes.
+* **OPTIONAL** Add ` -v $(pwd)/middleman.toml:/middleman/etc/middleman.toml` to use a custom config file. All command line arguments are ignored when using a config file.
 
 **NOTE** that the container will bind to `0.0.0.0` by default.
 
