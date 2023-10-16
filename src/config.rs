@@ -8,19 +8,32 @@ use toml;
 static DEFAULT_CONFIG_FILENAME: &str = "middleman.toml";
 
 #[derive(Parser)]
-#[command(author, version, about="Starts a reverse proxy to <UPSTREAM>, listens on <BIND>:<PORT>.\nRecords upstream responses to <TAPES> directory.\nReturns recorded response if url matches (does not call upstream in this case).")]
+#[command(
+    author,
+    version,
+    about = "Starts a reverse proxy to <UPSTREAM>, listens on <BIND>:<PORT>.\nRecords upstream responses to <TAPES> directory.\nReturns recorded response if url matches (does not call upstream in this case)."
+)]
 pub struct CliArgs {
     /// the port to listen on
-    #[arg(short, long, help="Listen port [default: 5050]")]
+    #[arg(short, long, help = "Listen port [default: 5050]")]
     port: Option<u16>,
     // Server to connect to
-    #[arg(short, long, required = false, help="The upstream host to send requests to [example: http://localhost:3000]")]
+    #[arg(
+        short,
+        long,
+        required = false,
+        help = "The upstream host to send requests to [example: http://localhost:3000]"
+    )]
     upstream: Option<String>,
     // Directory to store recordings
-    #[arg(short, long, help="The directory where tapes will be stored [default: ./tapes]")]
+    #[arg(
+        short,
+        long,
+        help = "The directory where tapes will be stored [default: ./tapes]"
+    )]
     tapes: Option<String>,
     // address to bind on
-    #[arg(short, long, help="The address to bind to [default: 127.0.0.1]")]
+    #[arg(short, long, help = "The address to bind to [default: 127.0.0.1]")]
     bind: Option<String>,
     // An override config file path
     #[arg(short, long, help="The path to a toml config file with the same options as cli", default_value_t=String::from(DEFAULT_CONFIG_FILENAME))]
@@ -44,9 +57,7 @@ pub struct Config {
 }
 
 async fn read_config(args: &CliArgs) -> TomlConfig {
-
     if !Path::new(&args.config_path).exists() {
-
         if &args.config_path != DEFAULT_CONFIG_FILENAME {
             println!("Config file ({}) specified but not found", args.config_path);
             exit(1);
@@ -68,7 +79,10 @@ async fn read_config(args: &CliArgs) -> TomlConfig {
             return x;
         }
         Err(_) => {
-            eprintln!("Unable to read the configuration file `{}`", args.config_path);
+            eprintln!(
+                "Unable to read the configuration file `{}`",
+                args.config_path
+            );
             exit(1);
         }
     }

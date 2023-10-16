@@ -3,7 +3,8 @@ mod config;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Client;
 use hyper::{Body, Request, Response, Server};
-use hyper_tls::HttpsConnector;
+use hyper_rustls::ConfigBuilderExt;
+
 use std::convert::Infallible;
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
@@ -23,7 +24,17 @@ async fn proxy_handler(
     config: config::Config,
     req: Request<Body>,
 ) -> Result<Response<Body>, hyper::Error> {
-    let https = HttpsConnector::new();
+    // Prepare the TLS client config
+    let tls = rustls::ClientConfig::builder()
+        .with_safe_defaults()
+        .with_native_roots()
+        .with_no_client_auth();
+    // Prepare the HTTPS connector
+    let https = hyper_rustls::HttpsConnectorBuilder::new()
+        .with_tls_config(tls)
+        .https_or_http()
+        .enable_http1()
+        .build();
     let client = Client::builder().build::<_, hyper::Body>(https);
 
     let upstream = config.upstream;
@@ -34,11 +45,7 @@ async fn proxy_handler(
 
     println!("request  for     {} {}", &method, &path);
 
-    let recording_path = recording_name(
-        &config.tapes,
-        &req.uri().to_string(),
-        &method.to_string(),
-    );
+    let recording_path = recording_name(&config.tapes, &req.uri().to_string(), &method.to_string());
     fs::create_dir_all(format!("{}/{}", &config.tapes, &req.uri().to_string()))
         .await
         .expect("Failed to create a tape directory");
@@ -69,7 +76,7 @@ async fn proxy_handler(
         }
         let bs: Vec<u8> = c[start_of_body..].try_into().unwrap();
         let res = res.body(Body::from(bs)).unwrap();
-        println!("playback for {} {} {}", resp.code.unwrap() , &method, &path);
+        println!("playback for {} {} {}", resp.code.unwrap(), &method, &path);
         Ok(res)
     } else {
         let mut outgoing_request = Request::builder()
@@ -77,13 +84,11 @@ async fn proxy_handler(
             .uri(uri)
             .version(req.version());
 
-        for (k,v) in req.headers() {
-            outgoing_request = outgoing_request.header(k,v);
+        for (k, v) in req.headers() {
+            outgoing_request = outgoing_request.header(k, v);
         }
 
-        let outgoing_request = outgoing_request
-            .body(req.into_body())
-            .unwrap();
+        let outgoing_request = outgoing_request.body(req.into_body()).unwrap();
 
         let client_response = client.request(outgoing_request).await?;
 
@@ -116,7 +121,12 @@ async fn proxy_handler(
 
         let _ = file.write_all(&bytes.clone()).await;
 
-        println!("record   for {} {} {}", &parts.status.as_u16() ,&method, &path);
+        println!(
+            "record   for {} {} {}",
+            &parts.status.as_u16(),
+            &method,
+            &path
+        );
         Ok(Response::from_parts(parts, Body::from(bytes)))
     }
 }

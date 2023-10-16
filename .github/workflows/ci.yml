@@ -1,0 +1,196 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  style:
+    name: Check Style
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+          profile: minimal
+          override: true
+
+      - name: cargo fmt -- --check
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+
+  test:
+    name: Test
+    needs: [style]
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        build: [stable, beta, nightly]
+        include:
+          - build: beta
+            rust: beta
+          - build: nightly
+            rust: nightly
+            benches: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust || 'stable' }}
+          profile: minimal
+          override: true
+
+      - name: Build debug
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: ${{ matrix.features }}
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: ${{ matrix.features }}
+
+      - name: Test all benches
+        if: matrix.benches
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --benches ${{ matrix.features }}
+
+  builds:
+    name: Release - ${{ matrix.platform.release_for }}
+    strategy:
+      matrix:
+        platform:
+          - release_for: FreeBSD-x86_64
+            os: ubuntu-20.04
+            target: x86_64-unknown-freebsd
+            bin: middleman
+            name: middleman-FreeBSD-x86_64.tar.gz
+            command: build
+
+          - release_for: Windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: middleman.exe
+            name: middleman-Windows-x86_64.zip
+            command: both
+
+          - release_for: macOS-x86_64
+            os: macOS-latest
+            target: x86_64-apple-darwin
+            bin: middleman
+            name: middleman-Darwin-x86_64.tar.gz
+            command: both
+
+          - release_for: macOS-aarch64
+            os: macOS-latest
+            target: aarch64-apple-darwin
+            bin: middleman
+            name: middleman-Darwin-aarch.tar.gz
+            command: build
+
+    runs-on: ${{ matrix.platform.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v0
+        with:
+          command: ${{ matrix.platform.command }}
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
+          strip: true
+
+  deploy:
+    name: deploy
+    needs: [builds]
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      matrix:
+        platform:
+          - release_for: FreeBSD-x86_64
+            os: ubuntu-20.04
+            target: x86_64-unknown-freebsd
+            bin: middleman
+            name: middleman-FreeBSD-x86_64.tar.gz
+            command: build
+
+          - release_for: Linux-x86_64
+            os: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+            bin: middleman
+            name: middleman-linux-x86_64.tar.gz
+            command: build
+
+          - release_for: Linux-aarch64
+            os: ubuntu-20.04
+            target: aarch64-unknown-linux-gnu
+            bin: middleman
+            name: middleman-linux-aarch64.tar.gz
+            command: build
+
+          - release_for: Windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: middleman.exe
+            name: middleman-Windows-x86_64.zip
+            command: both
+
+          - release_for: macOS-x86_64
+            os: macOS-latest
+            target: x86_64-apple-darwin
+            bin: middleman
+            name: middleman-Darwin-x86_64.tar.gz
+            command: both
+
+          - release_for: macOS-aarch64
+            os: macOS-latest
+            target: aarch64-apple-darwin
+            bin: middleman
+            name: middleman-Darwin-aarch.tar.gz
+            command: build
+
+    runs-on: ${{ matrix.platform.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v0
+        with:
+          command: ${{ matrix.platform.command }}
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
+          strip: true
+
+      - name: Package
+        shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release          
+          tar czvf ../../../middleman-${{ matrix.target }}.tar.gz middleman
+          cd -
+      - name: Publish
+        uses: softprops/action-gh-release@v1
+        with:
+            files: 'middleman*'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
