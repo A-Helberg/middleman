@@ -25,7 +25,7 @@ The use case is any applications talking to an API. Use middleman to replay resp
 Middlemand can either be configured with command line options or a toml config file.
 If you need to re-record a response simply delete the existing recording.
 
-```shell
+```text
 $ middleman -h
 
 Starts a reverse proxy to <UPSTREAM>, listens on <BIND>:<PORT>.
