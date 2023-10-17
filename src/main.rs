@@ -79,6 +79,15 @@ async fn proxy_handler(
         println!("playback for {} {} {}", resp.code.unwrap(), &method, &path);
         Ok(res)
     } else {
+        if config.replay_only {
+            println!("Not Impl for {} {} {}", 501, &method, &path);
+            let mut resp = Response::builder().status(501);
+
+            if req.headers().get("accept").is_some() {
+                resp = resp.header("accept", req.headers().get("accept").unwrap());
+            }
+            return Ok(resp.body(Body::from("")).unwrap());
+        }
         let mut outgoing_request = Request::builder()
             .method(method.clone())
             .uri(uri)
