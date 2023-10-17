@@ -38,6 +38,12 @@ pub struct CliArgs {
     // An override config file path
     #[arg(short, long, help="The path to a toml config file with the same options as cli", default_value_t=String::from(DEFAULT_CONFIG_FILENAME))]
     config_path: String,
+    #[arg(
+        long,
+        help = "Only replay responses. If specified middleman will not attempt to contact the upstream",
+        default_value_t = false
+    )]
+    replay_only: bool,
 }
 
 #[derive(Deserialize, Default)]
@@ -46,6 +52,7 @@ struct TomlConfig {
     upstream: Option<String>,
     tapes: Option<String>,
     bind: Option<String>,
+    replay_only: Option<bool>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -54,6 +61,7 @@ pub struct Config {
     pub upstream: String,
     pub tapes: String,
     pub bind: String,
+    pub replay_only: bool,
 }
 
 async fn read_config(args: &CliArgs) -> TomlConfig {
@@ -106,6 +114,7 @@ pub async fn get_config() -> Config {
             .or(toml.bind)
             .or(Some("127.0.0.1".to_string()))
             .unwrap(),
+        replay_only: toml.replay_only.or(Some(args.replay_only)).unwrap(),
     }
 }
 
