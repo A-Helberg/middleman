@@ -9,7 +9,8 @@ RUN     cargo build --release
 FROM debian:bookworm AS runtime
 
 RUN apt-get update \
-    && apt-get install --assume-yes --quiet openssl \
+    && apt-get install --assume-yes --quiet \
+       openssl ca-certificates \
     && rm --recursive --force /var/lib/cache /var/lib/apt/lists
 
 RUN  mkdir --parents /middleman/tapes /middleman/etc
