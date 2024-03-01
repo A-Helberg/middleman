@@ -16,12 +16,14 @@ pub fn recording_exists(recording_name: &str) -> bool {
     Path::new(&recording_name).exists()
 }
 
-pub fn recording_name(folder: &str, path: &str, method: &str) -> String {
+pub fn recording_name<T>(folder: &str, req: &Request<T> ) -> String {
+    let path: &str = req.uri().path();
+    let method: &str = req.method().as_str();
     format!("{}/{}/{}", folder, path, method)
 }
 
 pub async fn replay(config: &config::Config, req: Request<body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
-    if !recording_exists(&recording_name(&config.tapes, &req.uri().path().to_string(), &req.method().to_string())) {
+    if !recording_exists(&recording_name(&config.tapes, &req)) {
         println!("Not Impl for {} {} {}", 501, &req.method().to_string(), &req.uri().path().to_string());
 
         let mut resp = Response::builder().status(501);
@@ -31,7 +33,7 @@ pub async fn replay(config: &config::Config, req: Request<body::Incoming>) -> Re
         }
         return Ok(resp.body(http_utils::empty()).unwrap());
     }
-    let recording_path = recording_name(&config.tapes, &req.uri().path().to_string(), &req.method().to_string());
+    let recording_path = recording_name(&config.tapes, &req);
     let c: Vec<u8> = fs::read(&recording_path).await.unwrap();
     let mut headers = [httparse::EMPTY_HEADER; 64];
     let mut resp = httparse::Response::new(&mut headers);
@@ -67,7 +69,7 @@ pub async fn record(config : &config::Config, req : Request<BoxBody<Bytes,hyper:
         &method,
         &path
     );
-    let recording_path = recording_name(&config.tapes, &path, &method.to_string());
+    let recording_path = recording_name(&config.tapes, &req);
     fs::create_dir_all(format!("{}/{}", &config.tapes, &path))
         .await
         .expect("Failed to create a tape directory");

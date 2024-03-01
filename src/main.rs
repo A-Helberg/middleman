@@ -84,7 +84,7 @@ async fn proxy_handler(
         if config.replay_only {
             proxy::replay(config, req).await
         } else {
-            if proxy::recording_exists(&proxy::recording_name(&config.tapes, &req.uri().path().to_string(), &req.method().to_string())) {
+            if proxy::recording_exists(&proxy::recording_name(&config.tapes, &req)) {
                 return proxy::replay(config, req).await;
             }
 
