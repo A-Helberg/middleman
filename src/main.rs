@@ -16,6 +16,7 @@ use crate::tokiort::TokioIo;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
+use crate::clone::clone_incoming_response;
 use hyper::upgrade::Upgraded;
 use hyper::Method;
 
@@ -83,6 +84,16 @@ async fn proxy_handler(
         if config.replay_only {
             proxy::replay(config, req).await
         } else {
+            let passthrough = req.headers().contains_key("x-middleman-passthrough")
+                && req.headers().get("x-middleman-passthrough").unwrap() != "false";
+
+            if passthrough == true {
+                let (req, _) = clone::clone_incoming_request(req).await?;
+                let resp = proxy::make_request(req).await?;
+                let (_, resp) = clone_incoming_response(resp).await?;
+                return Ok(resp);
+            }
+
             if proxy::recording_exists(&proxy::recording_name(&config.tapes, &req)) {
                 return proxy::replay(config, req).await;
             }
