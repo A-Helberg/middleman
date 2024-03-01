@@ -31,7 +31,6 @@ type MyRequest = Result<two_of!(Request<BoxBody<Bytes, hyper::Error>>), hyper::E
 
 pub async fn clone_incoming_request(req: Request<Incoming>) -> MyRequest {
     let (parts, body) = req.into_parts();
-    //req.collect().await?.aggregate();
     let x = body.collect().await?.aggregate();
     let body = clone_body(x);
 
@@ -44,7 +43,6 @@ pub async fn clone_incoming_request(req: Request<Incoming>) -> MyRequest {
 #[allow(dead_code)]
 pub async fn clone_bytes_request(req: Request<BoxBody<Bytes, hyper::Error>>) -> MyRequest {
     let (parts, body) = req.into_parts();
-    //req.collect().await?.aggregate();
     let x = body.collect().await?.aggregate();
     let body = clone_body(x);
 
@@ -53,7 +51,6 @@ pub async fn clone_bytes_request(req: Request<BoxBody<Bytes, hyper::Error>>) -> 
 // Response
 pub async fn clone_incoming_response(req: Response<Incoming>) -> MyResponse {
     let (parts, body) = req.into_parts();
-    //req.collect().await?.aggregate();
     let x = body.collect().await?.aggregate();
     let body = clone_body(x);
 
@@ -65,7 +62,6 @@ pub async fn clone_incoming_response(req: Response<Incoming>) -> MyResponse {
 
 pub async fn clone_bytes_response(req: Response<BoxBody<Bytes, hyper::Error>>) -> MyResponse {
     let (parts, body) = req.into_parts();
-    //req.collect().await?.aggregate();
     let x = body.collect().await?.aggregate();
     let body = clone_body(x);
 
