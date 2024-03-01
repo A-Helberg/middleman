@@ -4,8 +4,7 @@ use http_body_util::combinators::BoxBody;
 use http_body_util::BodyExt;
 use hyper::body::{Incoming, Buf};
 use hyper;
-use crate::full;
-use core::fmt::Error;
+use crate::http_utils::full;
 
 
 macro_rules! two_of {
@@ -35,7 +34,6 @@ pub async fn clone_incoming_request(req: Request<Incoming>) -> MyRequest {
     //req.collect().await?.aggregate();
     let x = body.collect().await?.aggregate();
     let body = clone_body(x);
-    println!("Incoming Request: {:?}",body);
 
     Ok((
         Request::from_parts(parts.clone(), full(body.clone())),
@@ -43,6 +41,7 @@ pub async fn clone_incoming_request(req: Request<Incoming>) -> MyRequest {
     ))
 }
 
+#[allow(dead_code)]
 pub async fn clone_bytes_request(req: Request<BoxBody<Bytes, hyper::Error>>) -> MyRequest {
     let (parts, body) = req.into_parts();
     //req.collect().await?.aggregate();
@@ -57,7 +56,6 @@ pub async fn clone_incoming_response(req: Response<Incoming>) -> MyResponse {
     //req.collect().await?.aggregate();
     let x = body.collect().await?.aggregate();
     let body = clone_body(x);
-    println!("Incomping response: {:?}",body);
 
     Ok((
         Response::from_parts(parts.clone(), full(body.clone())),

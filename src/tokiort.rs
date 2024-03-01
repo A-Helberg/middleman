@@ -1,12 +1,8 @@
-
 use std::{
-    future::Future,
     pin::Pin,
     task::{Context, Poll},
-    time::{Duration, Instant},
 };
 
-use hyper::rt::{Sleep, Timer};
 use pin_project_lite::pin_project;
 
 pin_project! {
@@ -17,6 +13,8 @@ pin_project! {
     }
 }
 
+
+#[allow(dead_code)]
 impl<T> TokioIo<T> {
     pub fn new(inner: T) -> Self {
         Self { inner }

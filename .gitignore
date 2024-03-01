@@ -1,3 +1,4 @@
 /target
 tapes
 middleman.toml*
+.idea
