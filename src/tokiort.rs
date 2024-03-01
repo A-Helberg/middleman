@@ -13,7 +13,6 @@ pin_project! {
     }
 }
 
-
 #[allow(dead_code)]
 impl<T> TokioIo<T> {
     pub fn new(inner: T) -> Self {
@@ -26,8 +25,8 @@ impl<T> TokioIo<T> {
 }
 
 impl<T> hyper::rt::Read for TokioIo<T>
-    where
-        T: tokio::io::AsyncRead,
+where
+    T: tokio::io::AsyncRead,
 {
     fn poll_read(
         self: Pin<&mut Self>,
@@ -50,8 +49,8 @@ impl<T> hyper::rt::Read for TokioIo<T>
 }
 
 impl<T> hyper::rt::Write for TokioIo<T>
-    where
-        T: tokio::io::AsyncWrite,
+where
+    T: tokio::io::AsyncWrite,
 {
     fn poll_write(
         self: Pin<&mut Self>,
@@ -86,8 +85,8 @@ impl<T> hyper::rt::Write for TokioIo<T>
 }
 
 impl<T> tokio::io::AsyncRead for TokioIo<T>
-    where
-        T: hyper::rt::Read,
+where
+    T: hyper::rt::Read,
 {
     fn poll_read(
         self: Pin<&mut Self>,
@@ -118,8 +117,8 @@ impl<T> tokio::io::AsyncRead for TokioIo<T>
 }
 
 impl<T> tokio::io::AsyncWrite for TokioIo<T>
-    where
-        T: hyper::rt::Write,
+where
+    T: hyper::rt::Write,
 {
     fn poll_write(
         self: Pin<&mut Self>,

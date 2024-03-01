@@ -1,30 +1,38 @@
-use http::{Request, Response};
-use hyper::body;
-use http_body_util::combinators::BoxBody;
-use bytes::Bytes;
-use tokio::fs;
-use std::path::Path;
-use hyper::body::Incoming;
-use tokio::net::TcpStream;
-use hyper::client::conn::http1::Builder;
-use tokio::io::AsyncWriteExt;
-use http_body_util::BodyExt;
-use crate::{clone, config, http_utils};
 use crate::tokiort::TokioIo;
+use crate::{clone, config, http_utils};
+use bytes::Bytes;
+use http::{Request, Response};
+use http_body_util::combinators::BoxBody;
+use http_body_util::BodyExt;
+use hyper::body;
+use hyper::body::Incoming;
+use hyper::client::conn::http1::Builder;
+use std::path::Path;
+use tokio::fs;
+use tokio::io::AsyncWriteExt;
+use tokio::net::TcpStream;
 
 pub fn recording_exists(recording_name: &str) -> bool {
     Path::new(&recording_name).exists()
 }
 
-pub fn recording_name<T>(folder: &str, req: &Request<T> ) -> String {
+pub fn recording_name<T>(folder: &str, req: &Request<T>) -> String {
     let path: &str = req.uri().path();
     let method: &str = req.method().as_str();
     format!("{}/{}/{}", folder, path, method)
 }
 
-pub async fn replay(config: &config::Config, req: Request<body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
+pub async fn replay(
+    config: &config::Config,
+    req: Request<body::Incoming>,
+) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
     if !recording_exists(&recording_name(&config.tapes, &req)) {
-        println!("Not Impl for {} {} {}", 501, &req.method().to_string(), &req.uri().path().to_string());
+        println!(
+            "Not Impl for {} {} {}",
+            501,
+            &req.method().to_string(),
+            &req.uri().path().to_string()
+        );
 
         let mut resp = Response::builder().status(501);
 
@@ -40,26 +48,29 @@ pub async fn replay(config: &config::Config, req: Request<body::Incoming>) -> Re
 
     resp.parse(&c).unwrap();
 
-    let mut response_builder = Response::builder()
-        .status(resp.code.unwrap());
+    let mut response_builder = Response::builder().status(resp.code.unwrap());
 
     let method = req.method().clone();
     let path = req.uri().path();
     println!("playback for {} {} {}", resp.code.unwrap(), &method, &path);
 
     for header in resp.headers {
-       response_builder = response_builder.header(header.name, header.value);
+        response_builder = response_builder.header(header.name, header.value);
     }
 
     let start_of_body = http_utils::start_of_body(&c);
-    let body : Bytes = c[start_of_body..].to_vec().into();
-        //<&[u8] as TryInto<Bytes>>::try_into(c[start_of_body..]).unwrap().clone();
+    let body: Bytes = c[start_of_body..].to_vec().into();
+    //<&[u8] as TryInto<Bytes>>::try_into(c[start_of_body..]).unwrap().clone();
     let response = response_builder.body(http_utils::full(body)).unwrap();
 
     Ok(response)
 }
 
-pub async fn record(config : &config::Config, req : Request<BoxBody<Bytes,hyper::Error>>, resp: Response<BoxBody<Bytes,hyper::Error>>) -> Result<(),hyper::Error> {
+pub async fn record(
+    config: &config::Config,
+    req: Request<BoxBody<Bytes, hyper::Error>>,
+    resp: Response<BoxBody<Bytes, hyper::Error>>,
+) -> Result<(), hyper::Error> {
     let method = req.method().clone();
     let path = req.uri().path();
 
@@ -75,8 +86,8 @@ pub async fn record(config : &config::Config, req : Request<BoxBody<Bytes,hyper:
         .expect("Failed to create a tape directory");
 
     let mut file = tokio::fs::File::create(&recording_path)
-       .await
-       .expect("Could not write to the tapes directory");
+        .await
+        .expect("Could not write to the tapes directory");
 
     let (resp, new_resp) = clone::clone_bytes_response(resp).await?;
     let (_parts, body) = new_resp.into_parts();
@@ -85,11 +96,7 @@ pub async fn record(config : &config::Config, req : Request<BoxBody<Bytes,hyper:
         "{:?} {} {}\r\n",
         &resp.version(),
         &resp.status().as_str(),
-        &resp
-            .status()
-            .canonical_reason()
-            .or(Some(""))
-            .unwrap()
+        &resp.status().canonical_reason().or(Some("")).unwrap()
     );
 
     let _ = file.write_all(preamble.as_bytes()).await;
@@ -107,8 +114,9 @@ pub async fn record(config : &config::Config, req : Request<BoxBody<Bytes,hyper:
     Ok(())
 }
 
-pub async fn make_request(req : Request<BoxBody<Bytes, hyper::Error>>) -> Result<Response<Incoming>, hyper::Error> {
-
+pub async fn make_request(
+    req: Request<BoxBody<Bytes, hyper::Error>>,
+) -> Result<Response<Incoming>, hyper::Error> {
     let host = req.uri().host().expect("uri has no host");
     let port = req.uri().port_u16().unwrap_or(80);
 

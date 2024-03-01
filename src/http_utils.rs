@@ -1,5 +1,5 @@
-use http_body_util::combinators::BoxBody;
 use bytes::Bytes;
+use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyExt, Empty, Full};
 
 pub fn start_of_body(payload: &Vec<u8>) -> usize {
@@ -7,7 +7,11 @@ pub fn start_of_body(payload: &Vec<u8>) -> usize {
     for i in 0..payload.len() {
         let bs = "\r\n".as_bytes();
         if i + 3 < payload.len() {
-            if payload[i] == bs[0] && payload[i + 1] == bs[1] && payload[i + 2] == bs[0] && payload[i + 3] == bs[1] {
+            if payload[i] == bs[0]
+                && payload[i + 1] == bs[1]
+                && payload[i + 2] == bs[0]
+                && payload[i + 3] == bs[1]
+            {
                 start_of_body = i + 4;
                 break;
             }

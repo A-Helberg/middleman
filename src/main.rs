@@ -1,23 +1,23 @@
-mod config;
-mod tokiort;
 mod clone;
+mod config;
 mod http_utils;
 mod proxy;
+mod tokiort;
 
 use hyper::service::service_fn;
 
-use hyper::{Request, Response, server};
-use http_body_util::{combinators::BoxBody};
+use http_body_util::combinators::BoxBody;
+use hyper::{server, Request, Response};
 
 use bytes::Bytes;
 use tokio::net::{TcpListener, TcpStream};
 
+use crate::tokiort::TokioIo;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
-use crate::tokiort::TokioIo;
 
-use hyper::Method;
 use hyper::upgrade::Upgraded;
+use hyper::Method;
 
 fn host_addr(uri: &http::Uri) -> Option<String> {
     uri.authority().and_then(|auth| Some(auth.to_string()))
@@ -38,10 +38,9 @@ async fn tunnel(upgraded: Upgraded, addr: String) -> std::io::Result<()> {
 }
 
 async fn proxy_handler(
-   config : &config::Config,
-   req: Request<hyper::body::Incoming>,
-)
-   -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
+    config: &config::Config,
+    req: Request<hyper::body::Incoming>,
+) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
     let method = req.method().clone();
     let path = req.uri().path();
     println!("request  for     {} {}", &method, &path);
@@ -97,7 +96,6 @@ async fn proxy_handler(
     }
 }
 
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = config::get_config().await;
@@ -114,9 +112,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let config = config.clone();
         tokio::task::spawn(async move {
             if let Err(err) = server::conn::http1::Builder::new()
-                .serve_connection(io, service_fn(|req| async {
-                   proxy_handler(&config, req).await
-                }))
+                .serve_connection(
+                    io,
+                    service_fn(|req| async { proxy_handler(&config, req).await }),
+                )
                 .with_upgrades()
                 .await
             {
