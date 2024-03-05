@@ -11,7 +11,7 @@ static DEFAULT_CONFIG_FILENAME: &str = "middleman.toml";
 #[command(
     author,
     version,
-    about = "Starts a reverse proxy to <UPSTREAM>, listens on <BIND>:<PORT>.\nRecords upstream responses to <TAPES> directory.\nReturns recorded response if url matches (does not call upstream in this case)."
+    about = "Starts a reverse proxy to <UPSTREAM>, listens on <BIND>:<PORT>.\nRecords upstream responses to <TAPES> directory.\nReturns recorded response if url matches (does not call upstream in this case).\n\nThe optional header `x-middleman-passthrough` can be specified in http requests to middleman to pass a request through to the <UPSTREAM>.\nAny value other than the exact string \"false\" will be considered Truthy.\nThe `--replay-only` config flag takes precedence over the `x-middleman-passthrough` header."
 )]
 pub struct CliArgs {
     /// the port to listen on
