@@ -11,6 +11,9 @@ use std::path::Path;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
+use native_tls::TlsConnector as NativeTlsConnector;
+use tokio_native_tls::TlsConnector;
+use crate::config::Config;
 
 pub fn recording_exists(recording_name: &str) -> bool {
     Path::new(&recording_name).exists()
@@ -114,11 +117,12 @@ pub async fn record(
     Ok(())
 }
 
-pub async fn make_request(
+pub async fn make_request_insecure(
+    config: & Config,
     req: Request<BoxBody<Bytes, hyper::Error>>,
 ) -> Result<Response<Incoming>, hyper::Error> {
-    let host = req.uri().host().expect("uri has no host");
-    let port = req.uri().port_u16().unwrap_or(80);
+    let host = config.upstream_ip.clone();
+    let port = config.upstream_port;
 
     let stream = TcpStream::connect((host, port)).await.unwrap();
     let io = TokioIo::new(stream);
@@ -128,6 +132,7 @@ pub async fn make_request(
         .title_case_headers(true)
         .handshake(io)
         .await?;
+
     tokio::task::spawn(async move {
         if let Err(err) = conn.await {
             println!("Connection failed: {:?}", err);
@@ -135,4 +140,46 @@ pub async fn make_request(
     });
 
     sender.send_request(req).await
+}
+
+
+pub async fn make_request_secure(
+    config: & Config,
+    req: Request<BoxBody<Bytes, hyper::Error>>,
+) -> Result<Response<Incoming>, hyper::Error> {
+    let ip = config.upstream_ip.clone();
+    let port = config.upstream_port;
+
+    let stream = TcpStream::connect((ip, port)).await.unwrap();
+
+    let native_connector = NativeTlsConnector::builder().build().unwrap();
+    let stream =  TlsConnector::from(native_connector).connect(&config.upstream, stream).await.unwrap();
+
+    let io = TokioIo::new(stream);
+
+    let (mut sender, conn) = Builder::new()
+        .preserve_header_case(true)
+        .title_case_headers(true)
+        .handshake(io)
+        .await?;
+
+    tokio::task::spawn(async move {
+        if let Err(err) = conn.await {
+            println!("Connection failed: {:?}", err);
+        }
+    });
+
+    sender.send_request(req).await
+}
+
+
+pub async fn make_request(
+    config: & Config,
+    req: Request<BoxBody<Bytes, hyper::Error>>,
+) -> Result<Response<Incoming>, hyper::Error> {
+    if config.upstream_tls {
+        return make_request_secure(config, req).await;
+    } else {
+        return make_request_insecure(config, req).await;
+    }
 }

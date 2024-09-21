@@ -11,6 +11,10 @@ use hyper::{server, Request, Response};
 
 use bytes::Bytes;
 use tokio::net::{TcpListener, TcpStream};
+use std::io::{self, BufReader};
+use std::sync::Arc;
+use std::fs::File;
+use tokio_rustls::{rustls, TlsAcceptor};
 
 use crate::tokiort::TokioIo;
 use std::net::{IpAddr, SocketAddr};
@@ -89,7 +93,7 @@ async fn proxy_handler(
 
             if passthrough == true {
                 let (req, _) = clone::clone_incoming_request(req).await?;
-                let resp = proxy::make_request(req).await?;
+                let resp = proxy::make_request(config, req).await?;
                 let (_, resp) = clone_incoming_response(resp).await?;
                 return Ok(resp);
             }
@@ -99,7 +103,7 @@ async fn proxy_handler(
             }
 
             let (req, new_req) = clone::clone_incoming_request(req).await?;
-            let resp = proxy::make_request(new_req).await?;
+            let resp = proxy::make_request(config, new_req).await?;
             let (resp, new_resp) = clone::clone_incoming_response(resp).await?;
             let _ = proxy::record(&config, req, new_resp).await;
             Ok(resp)
@@ -113,8 +117,75 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let ip =
         IpAddr::from_str(&config.bind).expect("Looks like you didn't provide a valid IP for bind");
+
     let addr = SocketAddr::new(ip, config.port);
+    let tls_addr = SocketAddr::new(ip, config.tls_port);
+
     println!("Listening on {}", addr);
+
+    if config.listen_tls {
+      println!("TLS Listening on {}", tls_addr);
+      let tls_listener = TcpListener::bind(&tls_addr).await?;
+
+      let cert_file_path = config.cert_file.clone().unwrap();
+      let private_key_file_path = config.private_key_file.clone().unwrap();
+
+      let cert_file = File::open(cert_file_path.clone());
+      if cert_file.is_err() {
+            panic!("Could not open cert file: {cert_file_path}")
+      }
+
+      let certs = rustls_pemfile::certs(&mut BufReader::new(cert_file.unwrap()))
+          .collect::<Result<Vec<_>, _>>()?;
+
+
+      let private_key_file = File::open(private_key_file_path.clone());
+      if private_key_file.is_err() {
+            panic!("Could not open private key file: {private_key_file_path}")
+      }
+
+
+      let private_key =
+          rustls_pemfile::private_key(&mut BufReader::new(private_key_file.unwrap()))?
+              .unwrap();
+
+      let server_config = rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(certs, private_key)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
+
+      let acceptor = TlsAcceptor::from(Arc::new(server_config));
+      loop {
+          let (stream, _) = tls_listener.accept().await?;
+
+          let config = config.clone();
+          let acceptor = acceptor.clone();
+
+          let stream = acceptor.accept(stream).await;
+          if stream.is_err() {
+            println!("Err: HTTP connection to HTTPS server");
+            continue;
+          }
+
+          let stream = stream.unwrap();
+
+          let io = TokioIo::new(stream);
+          tokio::task::spawn(async move {
+              if let Err(err) = server::conn::http1::Builder::new()
+                  .serve_connection(
+                      io,
+                      service_fn(|req| async { proxy_handler(&config, req).await }),
+                  )
+                  .with_upgrades()
+                  .await
+              {
+                  println!("Failed to serve connection: {:?}", err);
+              }
+          });
+      }
+
+
+    }
 
     let listener = TcpListener::bind(&addr).await?;
     loop {
