@@ -813,7 +813,6 @@ dependencies = [
  "native-tls",
  "pin-project",
  "pin-project-lite",
- "rustls",
  "rustls-pemfile",
  "serde",
  "tokio",
