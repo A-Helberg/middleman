@@ -127,9 +127,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: SSL
-        run: sudo apt install libssl-dev openssl libssl-dev:armhf
-        if: ${{ matrix.platform.os == 'ubuntu-latest' }}
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:
@@ -191,9 +188,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: SSL
-        run: sudo apt install libssl-dev openssl libssl-dev:armhf
-        if: ${{ matrix.platform.os == 'ubuntu-latest' }}
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:
