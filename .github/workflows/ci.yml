@@ -127,6 +127,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - name: SSL
+        run: sudo apt install libssl-dev openssl libssl-dev:armhf
+        if: ${{ matrix.platform.os == 'ubuntu-latest' }}
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:
@@ -142,12 +145,12 @@ jobs:
     strategy:
       matrix:
         platform:
-          - release_for: FreeBSD-x86_64
-            os: ubuntu-20.04
-            target: x86_64-unknown-freebsd
-            bin: middleman
-            name: middleman-FreeBSD-x86_64.tar.gz
-            command: build
+          #- release_for: FreeBSD-x86_64
+          #  os: ubuntu-20.04
+          #  target: x86_64-unknown-freebsd
+          #  bin: middleman
+          #  name: middleman-FreeBSD-x86_64.tar.gz
+          #  command: build
 
           - release_for: Linux-x86_64
             os: ubuntu-20.04
@@ -188,6 +191,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - name: SSL
+        run: sudo apt install libssl-dev openssl libssl-dev:armhf
+        if: ${{ matrix.platform.os == 'ubuntu-latest' }}
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:
