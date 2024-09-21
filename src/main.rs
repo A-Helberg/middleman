@@ -21,6 +21,8 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 use crate::clone::clone_incoming_response;
+use crate::config::Config;
+
 use hyper::upgrade::Upgraded;
 use hyper::Method;
 
@@ -111,17 +113,10 @@ async fn proxy_handler(
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = config::get_config().await;
-
+async fn listen_and_serve_https(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let ip =
         IpAddr::from_str(&config.bind).expect("Looks like you didn't provide a valid IP for bind");
-
-    let addr = SocketAddr::new(ip, config.port);
     let tls_addr = SocketAddr::new(ip, config.tls_port);
-
-    println!("Listening on {}", addr);
 
     if config.listen_tls {
       println!("TLS Listening on {}", tls_addr);
@@ -184,8 +179,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
           });
       }
 
-
     }
+    Ok(())
+}
+
+async fn listen_and_serve_http(config: & Config) -> Result<(), Box<dyn std::error::Error>> {
+    let ip =
+        IpAddr::from_str(&config.bind).expect("Looks like you didn't provide a valid IP for bind");
+    let addr = SocketAddr::new(ip, config.port);
+
+    println!("Listening on {} for HTTP", addr);
 
     let listener = TcpListener::bind(&addr).await?;
     loop {
@@ -205,4 +208,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
     }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = config::get_config().await;
+
+    let (a,b) = tokio::join!(listen_and_serve_http(&config), listen_and_serve_https(&config));
+    a?;
+    b?;
+    Ok(())
 }

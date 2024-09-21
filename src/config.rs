@@ -181,7 +181,7 @@ pub async fn get_config() -> Config {
         upstream_port = 443;
     }
 
-    println!("Resolved {} to {}:{}", host, response.clone(), upstream_port);
+    println!("Resolved {} to {}:{}", host, &upstream_ip, upstream_port);
 
 
     Config {
