@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.2.0] - 2024-09-21
+
+### Feature
+
+- Added support for listening for TLS connections and connecting to TLS upstreams.
+  See the output of -h for new flags.
 
 ## [0.1.3] - 2024-02-08
 
