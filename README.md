@@ -46,15 +46,40 @@ The `--replay-only` config flag takes precedence over the `x-middleman-passthrou
 Usage: middleman [OPTIONS]
 
 Options:
-  -p, --port <PORT>                Listen port [default: 5050]
-  -u, --upstream <UPSTREAM>        The upstream host to send requests to [example: http://localhost:3000]
-  -t, --tapes <TAPES>              The directory where tapes will be stored [default: ./tapes]
-  -b, --bind <BIND>                The address to bind to [default: 127.0.0.1]
-  -c, --config-path <CONFIG_PATH>  The path to a toml config file with the same options as cli [default: middleman.toml]
-      --replay-only                Only replay responses. If specified middleman will not attempt to contact the upstream
-  -h, --help                       Print help
-  -V, --version                    Print version
+  -p, --port <PORT>
+          Listen port [default: 5050]
+  -u, --upstream <UPSTREAM>
+          The upstream host to send requests to [example: http://localhost:3000]
+      --upstream-port <UPSTREAM_PORT>
+          The Upstream port to connect to [default: 443 when --upstream-tls] [default: 80]
+      --upstream-tls
+          Should we use TLS when connection to the upstream [default: false]
+  -t, --tapes <TAPES>
+          The directory where tapes will be stored [default: ./tapes]
+  -b, --bind <BIND>
+          The address to bind to [default: 127.0.0.1]
+  -c, --config-path <CONFIG_PATH>
+          The path to a toml config file with the same options as cli [default: middleman.toml]
+      --replay-only
+          Only replay responses. If specified middleman will not attempt to contact the upstream
+      --listen-tls
+          Should we listen for TLS connections? [default: false]
+      --tls-port <TLS_PORT>
+          The TLS Listen Port [default: 5443]
+      --cert-file <CERT_FILE>
+          The TLS cert file
+      --private-key-file <PRIVATE_KEY_FILE>
+          The TLS private key file
+  -h, --help
+          Print help
+  -V, --version
+          Print version
 ```
+
+### TLS
+
+To list for TLS(https) connection you would need to generate a certificate and private key file.
+The easiest way to do this is with [makecert](https://github.com/FiloSottile/mkcert).
 
 ## TODO:
 
