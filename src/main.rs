@@ -10,10 +10,10 @@ use http_body_util::combinators::BoxBody;
 use hyper::{server, Request, Response};
 
 use bytes::Bytes;
-use tokio::net::{TcpListener, TcpStream};
+use std::fs::File;
 use std::io::{self, BufReader};
 use std::sync::Arc;
-use std::fs::File;
+use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::{rustls, TlsAcceptor};
 
 use crate::tokiort::TokioIo;
@@ -119,71 +119,67 @@ async fn listen_and_serve_https(config: &Config) -> Result<(), Box<dyn std::erro
     let tls_addr = SocketAddr::new(ip, config.tls_port);
 
     if config.listen_tls {
-      println!("TLS Listening on {}", tls_addr);
-      let tls_listener = TcpListener::bind(&tls_addr).await?;
+        println!("TLS Listening on {}", tls_addr);
+        let tls_listener = TcpListener::bind(&tls_addr).await?;
 
-      let cert_file_path = config.cert_file.clone().unwrap();
-      let private_key_file_path = config.private_key_file.clone().unwrap();
+        let cert_file_path = config.cert_file.clone().unwrap();
+        let private_key_file_path = config.private_key_file.clone().unwrap();
 
-      let cert_file = File::open(cert_file_path.clone());
-      if cert_file.is_err() {
+        let cert_file = File::open(cert_file_path.clone());
+        if cert_file.is_err() {
             panic!("Could not open cert file: {cert_file_path}")
-      }
+        }
 
-      let certs = rustls_pemfile::certs(&mut BufReader::new(cert_file.unwrap()))
-          .collect::<Result<Vec<_>, _>>()?;
+        let certs = rustls_pemfile::certs(&mut BufReader::new(cert_file.unwrap()))
+            .collect::<Result<Vec<_>, _>>()?;
 
-
-      let private_key_file = File::open(private_key_file_path.clone());
-      if private_key_file.is_err() {
+        let private_key_file = File::open(private_key_file_path.clone());
+        if private_key_file.is_err() {
             panic!("Could not open private key file: {private_key_file_path}")
-      }
+        }
 
+        let private_key =
+            rustls_pemfile::private_key(&mut BufReader::new(private_key_file.unwrap()))?.unwrap();
 
-      let private_key =
-          rustls_pemfile::private_key(&mut BufReader::new(private_key_file.unwrap()))?
-              .unwrap();
+        let server_config = rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(certs, private_key)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
 
-      let server_config = rustls::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(certs, private_key)
-        .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
+        let acceptor = TlsAcceptor::from(Arc::new(server_config));
+        loop {
+            let (stream, _) = tls_listener.accept().await?;
 
-      let acceptor = TlsAcceptor::from(Arc::new(server_config));
-      loop {
-          let (stream, _) = tls_listener.accept().await?;
+            let config = config.clone();
+            let acceptor = acceptor.clone();
 
-          let config = config.clone();
-          let acceptor = acceptor.clone();
+            let stream = acceptor.accept(stream).await;
+            if stream.is_err() {
+                println!("Err: HTTP connection to HTTPS server");
+                continue;
+            }
 
-          let stream = acceptor.accept(stream).await;
-          if stream.is_err() {
-            println!("Err: HTTP connection to HTTPS server");
-            continue;
-          }
+            let stream = stream.unwrap();
 
-          let stream = stream.unwrap();
-
-          let io = TokioIo::new(stream);
-          tokio::task::spawn(async move {
-              if let Err(err) = server::conn::http1::Builder::new()
-                  .serve_connection(
-                      io,
-                      service_fn(|req| async { proxy_handler(&config, req).await }),
-                  )
-                  .with_upgrades()
-                  .await
-              {
-                  println!("Failed to serve connection: {:?}", err);
-              }
-          });
-      }
-
+            let io = TokioIo::new(stream);
+            tokio::task::spawn(async move {
+                if let Err(err) = server::conn::http1::Builder::new()
+                    .serve_connection(
+                        io,
+                        service_fn(|req| async { proxy_handler(&config, req).await }),
+                    )
+                    .with_upgrades()
+                    .await
+                {
+                    println!("Failed to serve connection: {:?}", err);
+                }
+            });
+        }
     }
     Ok(())
 }
 
-async fn listen_and_serve_http(config: & Config) -> Result<(), Box<dyn std::error::Error>> {
+async fn listen_and_serve_http(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let ip =
         IpAddr::from_str(&config.bind).expect("Looks like you didn't provide a valid IP for bind");
     let addr = SocketAddr::new(ip, config.port);
@@ -214,7 +210,10 @@ async fn listen_and_serve_http(config: & Config) -> Result<(), Box<dyn std::erro
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = config::get_config().await;
 
-    let (a,b) = tokio::join!(listen_and_serve_http(&config), listen_and_serve_https(&config));
+    let (a, b) = tokio::join!(
+        listen_and_serve_http(&config),
+        listen_and_serve_https(&config)
+    );
     a?;
     b?;
     Ok(())

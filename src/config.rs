@@ -1,13 +1,12 @@
 use clap::Parser;
+use hickory_resolver::config::*;
+use hickory_resolver::TokioAsyncResolver;
 use serde::Deserialize;
+use std::net::IpAddr;
 use std::path::Path;
 use std::process::exit;
 use tokio::fs;
 use toml;
-use std::net::IpAddr;
-use hickory_resolver::TokioAsyncResolver;
-use hickory_resolver::config::*;
-
 
 static DEFAULT_CONFIG_FILENAME: &str = "middleman.toml";
 
@@ -67,21 +66,11 @@ pub struct CliArgs {
         default_value_t = false
     )]
     listen_tls: bool,
-    #[arg(
-        long,
-        help = "The TLS Listen Port",
-        default_value_t = 5443
-    )]
+    #[arg(long, help = "The TLS Listen Port", default_value_t = 5443)]
     tls_port: u16,
-    #[arg(
-        long,
-        help = "The TLS cert file"
-    )]
+    #[arg(long, help = "The TLS cert file")]
     cert_file: Option<String>,
-    #[arg(
-        long,
-        help = "The TLS private key file"
-    )]
+    #[arg(long, help = "The TLS private key file")]
     private_key_file: Option<String>,
 }
 
@@ -153,26 +142,34 @@ pub async fn get_config() -> Config {
 
     validate(&args, &toml);
 
-    let listen_tls = toml.listen_tls.or(Some(args.listen_tls)).or(Some(false)).unwrap();
+    let listen_tls = toml
+        .listen_tls
+        .or(Some(args.listen_tls))
+        .or(Some(false))
+        .unwrap();
     let cert_file = args.cert_file.or(toml.cert_file).or(None);
     let private_key_file = args.private_key_file.or(toml.private_key_file).or(None);
 
     if listen_tls && cert_file.is_none() {
-      panic!("Trying to listen on TLS but --cert-file not provided.");
+        panic!("Trying to listen on TLS but --cert-file not provided.");
     }
 
     if listen_tls && private_key_file.is_none() {
-      panic!("Trying to listen on TLS but --private-key-file file not provided.");
+        panic!("Trying to listen on TLS but --private-key-file file not provided.");
     }
 
     let host = args.upstream.or(toml.upstream).unwrap();
     let mut opts = ResolverOpts::default();
     // We don't want to honor the hosts file, as we want to proxy to an actual host
     opts.use_hosts_file = false;
-    let resolver = TokioAsyncResolver::tokio(
-        ResolverConfig::google(),
-        opts);
-    let upstream_ip = resolver.lookup_ip(host.clone()).await.unwrap().iter().next().expect("Cloud not resolve upstream to an ip");
+    let resolver = TokioAsyncResolver::tokio(ResolverConfig::google(), opts);
+    let upstream_ip = resolver
+        .lookup_ip(host.clone())
+        .await
+        .unwrap()
+        .iter()
+        .next()
+        .expect("Cloud not resolve upstream to an ip");
 
     let upstream_tls = toml.upstream_tls.or(Some(args.upstream_tls)).unwrap();
     let mut upstream_port = toml.upstream_port.or(Some(args.upstream_port)).unwrap();
@@ -182,7 +179,6 @@ pub async fn get_config() -> Config {
     }
 
     println!("Resolved {} to {}:{}", host, &upstream_ip, upstream_port);
-
 
     Config {
         listen_tls: listen_tls,

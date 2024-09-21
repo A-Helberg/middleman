@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::tokiort::TokioIo;
 use crate::{clone, config, http_utils};
 use bytes::Bytes;
@@ -7,13 +8,12 @@ use http_body_util::BodyExt;
 use hyper::body;
 use hyper::body::Incoming;
 use hyper::client::conn::http1::Builder;
+use native_tls::TlsConnector as NativeTlsConnector;
 use std::path::Path;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use native_tls::TlsConnector as NativeTlsConnector;
 use tokio_native_tls::TlsConnector;
-use crate::config::Config;
 
 pub fn recording_exists(recording_name: &str) -> bool {
     Path::new(&recording_name).exists()
@@ -118,7 +118,7 @@ pub async fn record(
 }
 
 pub async fn make_request_insecure(
-    config: & Config,
+    config: &Config,
     req: Request<BoxBody<Bytes, hyper::Error>>,
 ) -> Result<Response<Incoming>, hyper::Error> {
     let host = config.upstream_ip.clone();
@@ -142,9 +142,8 @@ pub async fn make_request_insecure(
     sender.send_request(req).await
 }
 
-
 pub async fn make_request_secure(
-    config: & Config,
+    config: &Config,
     req: Request<BoxBody<Bytes, hyper::Error>>,
 ) -> Result<Response<Incoming>, hyper::Error> {
     let ip = config.upstream_ip.clone();
@@ -153,7 +152,10 @@ pub async fn make_request_secure(
     let stream = TcpStream::connect((ip, port)).await.unwrap();
 
     let native_connector = NativeTlsConnector::builder().build().unwrap();
-    let stream =  TlsConnector::from(native_connector).connect(&config.upstream, stream).await.unwrap();
+    let stream = TlsConnector::from(native_connector)
+        .connect(&config.upstream, stream)
+        .await
+        .unwrap();
 
     let io = TokioIo::new(stream);
 
@@ -172,9 +174,8 @@ pub async fn make_request_secure(
     sender.send_request(req).await
 }
 
-
 pub async fn make_request(
-    config: & Config,
+    config: &Config,
     req: Request<BoxBody<Bytes, hyper::Error>>,
 ) -> Result<Response<Incoming>, hyper::Error> {
     if config.upstream_tls {
